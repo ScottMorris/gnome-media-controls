@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   format:
-    name: Format (prettier --check)
+    name: Format
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
@@ -44,7 +44,7 @@ jobs:
           fi
 
   build:
-    name: Build (pnpm build)
+    name: Build
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
@@ -73,7 +73,7 @@ jobs:
           fi
 
   typecheck:
-    name: Type-check (tsc --noEmit, non-blocking)
+    name: Type-check
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/scottmorris/gnome-media-controls-ci:latest

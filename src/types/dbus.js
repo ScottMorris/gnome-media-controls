@@ -66,9 +66,9 @@
 /**
  * @typedef {Object} PlayerProxyDBusProperties
  * @property {PlaybackStatus} PlaybackStatus
- * @property {LoopStatus} LoopStatus
+ * @property {LoopStatus} [LoopStatus]
  * @property {number} Rate
- * @property {boolean} Shuffle
+ * @property {boolean} [Shuffle]
  * @property {MprisPlayerInterfaceMetadata | MprisPlayerInterfaceMetadataUnpacked} Metadata
  * @property {number} Volume
  * @property {number} Position
@@ -81,12 +81,12 @@
  * @property {boolean} CanSeek
  * @property {boolean} CanControl
  * @property {boolean} CanQuit
- * @property {boolean} Fullscreen
- * @property {boolean} CanSetFullscreen
+ * @property {boolean} [Fullscreen]
+ * @property {boolean} [CanSetFullscreen]
  * @property {boolean} CanRaise
  * @property {boolean} HasTrackList
  * @property {string} Identity
- * @property {string} DesktopEntry
+ * @property {string} [DesktopEntry]
  * @property {string[]} SupportedUriSchemes
  * @property {string[]} SupportedMimeTypes
  */

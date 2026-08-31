@@ -160,6 +160,11 @@ class PanelButton extends PanelMenu.Button {
      * @type {Map<KeysOf<PlayerProxyProperties>, number>}
      */
     changeListenerIds;
+    /**
+     * @private
+     * @type {(() => void) | null}
+     */
+    unsubscribeSeeked;
 
     /**
      * @param {PlayerProxy} playerProxy
@@ -170,6 +175,7 @@ class PanelButton extends PanelMenu.Button {
         this.playerProxy = playerProxy;
         this.extension = extension;
         this.changeListenerIds = new Map();
+        this.unsubscribeSeeked = null;
         this.doubleTapSourceId = null;
         this.updateWidgets(WidgetFlags.ALL);
         this.addProxyListeners();
@@ -476,6 +482,9 @@ class PanelButton extends PanelMenu.Button {
      * @returns {Promise<void>}
      */
     async addMenuImage() {
+        // Captured up front so we can detect (after each await below) whether this
+        // PanelButton has since been destroyed or repointed at a different player.
+        const proxy = this.playerProxy;
         if (this.menuImage == null) {
             this.menuImage = new St.Icon({
                 xExpand: false,
@@ -484,9 +493,12 @@ class PanelButton extends PanelMenu.Button {
             });
         }
         let artSet = false;
-        let stream = await getImage(this.playerProxy.metadata["mpris:artUrl"]);
-        if (stream == null && this.playerProxy.metadata["xesam:url"] != null) {
-            const trackUri = GLib.uri_parse(this.playerProxy.metadata["xesam:url"], GLib.UriFlags.NONE);
+        let stream = await getImage(proxy.metadata["mpris:artUrl"]);
+        if (this.playerProxy !== proxy) {
+            return;
+        }
+        if (stream == null && proxy.metadata["xesam:url"] != null) {
+            const trackUri = GLib.uri_parse(proxy.metadata["xesam:url"], GLib.UriFlags.NONE);
             if (trackUri != null && trackUri.get_scheme() === "file") {
                 const file = Gio.File.new_for_uri(trackUri.to_string());
                 const info = await file
@@ -497,6 +509,9 @@ class PanelButton extends PanelMenu.Button {
                         null,
                     )
                     .catch(errorLog);
+                if (this.playerProxy !== proxy) {
+                    return;
+                }
                 if (info != null) {
                     const path = info.get_attribute_byte_string(Gio.FILE_ATTRIBUTE_THUMBNAIL_PATH);
                     if (path == null) {
@@ -504,6 +519,9 @@ class PanelButton extends PanelMenu.Button {
                     } else {
                         const thumb = Gio.File.new_for_path(path);
                         stream = await getImage(thumb.get_uri());
+                        if (this.playerProxy !== proxy) {
+                            return;
+                        }
                     }
                 }
             }
@@ -513,6 +531,9 @@ class PanelButton extends PanelMenu.Button {
             /** @type {Promise<GdkPixbuf.Pixbuf>} */
             const pixbufPromise = /** @type {any} */ (GdkPixbuf.Pixbuf.new_from_stream_async(stream, null));
             const pixbuf = await pixbufPromise.catch(errorLog);
+            if (this.playerProxy !== proxy) {
+                return;
+            }
             if (pixbuf != null) {
                 const aspectRatio = pixbuf.width / pixbuf.height;
                 const height = width / aspectRatio;
@@ -594,19 +615,25 @@ class PanelButton extends PanelMenu.Button {
      * @returns {Promise<void>}
      */
     async addMenuSlider() {
-        const position = await this.playerProxy.position.catch(errorLog);
-        const length = this.playerProxy.metadata["mpris:length"];
-        const rate = this.playerProxy.rate;
+        // Captured up front so we can detect (after the await below) whether this
+        // PanelButton has since been destroyed or repointed at a different player.
+        const proxy = this.playerProxy;
+        const position = await proxy.position.catch(errorLog);
+        if (this.playerProxy !== proxy) {
+            return;
+        }
+        const length = proxy.metadata["mpris:length"];
+        const rate = proxy.rate;
         if (this.menuSlider == null) {
             this.menuSlider = new MenuSlider();
             this.menuSlider.connect("seeked", (_, position) => {
-                this.playerProxy.setPosition(this.playerProxy.metadata["mpris:trackid"], position);
+                this.playerProxy?.setPosition(this.playerProxy.metadata["mpris:trackid"], position);
             });
         }
         if (position != null && length != null && length > 0) {
             this.menuSlider.setDisabled(false);
             this.menuSlider.updateSlider(position, length, rate);
-            if (this.playerProxy.playbackStatus === PlaybackStatus.PLAYING) {
+            if (proxy.playbackStatus === PlaybackStatus.PLAYING) {
                 this.menuSlider.resumeTransition();
             } else {
                 this.menuSlider.pauseTransition();
@@ -1021,7 +1048,7 @@ class PanelButton extends PanelMenu.Button {
         this.addProxyListener("Rate", () => {
             this.menuSlider?.setRate(this.playerProxy.rate);
         });
-        this.playerProxy.onSeeked((position) => {
+        this.unsubscribeSeeked = this.playerProxy.onSeeked((position) => {
             this.menuSlider?.setPosition(position);
         });
     }
@@ -1034,6 +1061,8 @@ class PanelButton extends PanelMenu.Button {
         for (const [property, id] of this.changeListenerIds.entries()) {
             this.playerProxy.removeListener(property, id);
         }
+        this.unsubscribeSeeked?.();
+        this.unsubscribeSeeked = null;
     }
 
     /**

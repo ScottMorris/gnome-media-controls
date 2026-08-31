@@ -77,12 +77,15 @@ export default class PlayerProxy {
      * @returns {Promise<boolean>}
      */
     async initPlayer(mprisIface, mprisPlayerIface, propertiesIface) {
-        const mprisProxy = createDbusProxy(mprisIface, this.busName, MPRIS_OBJECT_PATH).catch(errorLog);
-        const mprisPlayerProxy = createDbusProxy(mprisPlayerIface, this.busName, MPRIS_OBJECT_PATH).catch(errorLog);
-        const propertiesProxy = createDbusProxy(propertiesIface, this.busName, MPRIS_OBJECT_PATH).catch(errorLog);
-        const proxies = await Promise.all([mprisProxy, mprisPlayerProxy, propertiesProxy]).catch(errorLog);
+        const proxies = await Promise.all([
+            createDbusProxy(mprisIface, this.busName, MPRIS_OBJECT_PATH),
+            createDbusProxy(mprisPlayerIface, this.busName, MPRIS_OBJECT_PATH),
+            createDbusProxy(propertiesIface, this.busName, MPRIS_OBJECT_PATH),
+        ]).catch((error) => {
+            errorLog("Failed to create proxies", error);
+            return null;
+        });
         if (proxies == null) {
-            errorLog("Failed to create proxies");
             return false;
         }
         this.mprisProxy = proxies[0];
@@ -554,7 +557,7 @@ export default class PlayerProxy {
     /**
      * @public
      * @param {(position: number) => void} callback
-     * @returns {any}
+     * @returns {() => void}
      */
     onSeeked(callback) {
         const signalId = this.mprisPlayerProxy.connectSignal("Seeked", () => {
@@ -577,7 +580,8 @@ export default class PlayerProxy {
             id = 0;
             this.changeListeners.set(property, [callback]);
         } else {
-            id = listeners.push(callback);
+            id = listeners.length;
+            listeners.push(callback);
         }
         return id;
     }

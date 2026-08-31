@@ -213,6 +213,12 @@ export default class MediaControls extends Extension {
 
     /**
      * @private
+     * @type {number[]}
+     */
+    settingsHandlerIds;
+
+    /**
+     * @private
      * @type {InstanceType<typeof PanelButton>}
      */
     panelBtn;
@@ -222,6 +228,21 @@ export default class MediaControls extends Extension {
      * @type {StdInterface}
      */
     watchProxy;
+
+    /**
+     * @private
+     * @type {number}
+     */
+    watchProxySignalId;
+
+    /**
+     * Bumped on every enable()/disable() so in-flight async startup work from a
+     * superseded cycle can detect it's stale and abort instead of mutating state
+     * that belongs to a later (or no) cycle.
+     * @private
+     * @type {number}
+     */
+    enableGeneration;
 
     /**
      * @private
@@ -264,9 +285,10 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     enable() {
+        this.enableGeneration = (this.enableGeneration ?? 0) + 1;
         this.playerProxies = new Map();
         this.initSettings();
-        this.initProxies().catch(errorLog);
+        this.initProxies(this.enableGeneration).catch(errorLog);
         this.updateMediaNotificationVisiblity();
         Main.wm.addKeybinding(
             "mediacontrols-show-popup-menu",
@@ -285,12 +307,17 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     disable() {
+        this.enableGeneration = (this.enableGeneration ?? 0) + 1;
         this.playerProxies = null;
         this.destroySettings();
         this.watchIfaceInfo = null;
         this.mprisIfaceInfo = null;
         this.mprisPlayerIfaceInfo = null;
         this.propertiesIfaceInfo = null;
+        if (this.watchProxy != null && this.watchProxySignalId != null) {
+            this.watchProxy.disconnectSignal(this.watchProxySignalId);
+        }
+        this.watchProxySignalId = null;
         this.watchProxy = null;
         this.removePanelButton();
         this.updateMediaNotificationVisiblity(true);
@@ -319,6 +346,7 @@ export default class MediaControls extends Extension {
      */
     initSettings() {
         this.settings = this.getSettings();
+        this.settingsHandlerIds = [];
         this.labelWidth = this.settings.get_uint("label-width");
         this.isFixedLabelWidth = this.settings.get_boolean("fixed-label-width");
         this.scrollLabels = this.settings.get_boolean("scroll-labels");
@@ -347,111 +375,111 @@ export default class MediaControls extends Extension {
         this.mouseActionScrollDown = this.settings.get_enum("mouse-action-scroll-down");
         this.cacheArt = this.settings.get_boolean("cache-art");
         this.blacklistedPlayers = this.settings.get_strv("blacklisted-players");
-        this.settings.connect("changed::label-width", () => {
+        this.settingsHandlerIds.push(this.settings.connect("changed::label-width", () => {
             this.labelWidth = this.settings.get_uint("label-width");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE);
-        });
-        this.settings.connect("changed::fixed-label-width", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::fixed-label-width", () => {
             this.isFixedLabelWidth = this.settings.get_boolean("fixed-label-width");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE);
-        });
-        this.settings.connect("changed::scroll-labels", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-labels", () => {
             this.scrollLabels = this.settings.get_boolean("scroll-labels");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        });
-        this.settings.connect("changed::scroll-speed", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-speed", () => {
             this.scrollSpeed = this.settings.get_uint("scroll-speed");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        });
-        this.settings.connect("changed::scroll-pause-time", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-pause-time", () => {
             this.scrollPauseTime = this.settings.get_uint("scroll-pause-time") * 1000;
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        });
-        this.settings.connect("changed::hide-media-notification", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::hide-media-notification", () => {
             this.hideMediaNotification = this.settings.get_boolean("hide-media-notification");
             this.updateMediaNotificationVisiblity();
-        });
-        this.settings.connect("changed::show-track-slider", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-track-slider", () => {
             this.showTrackSlider = this.settings.get_boolean("show-track-slider");
             this.panelBtn?.updateWidgets(WidgetFlags.MENU_SLIDER);
-        });
-        this.settings.connect("changed::show-label", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-label", () => {
             this.showLabel = this.settings.get_boolean("show-label");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
-        });
-        this.settings.connect("changed::show-player-icon", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-player-icon", () => {
             this.showPlayerIcon = this.settings.get_boolean("show-player-icon");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
-        });
-        this.settings.connect("changed::show-control-icons", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons", () => {
             this.showControlIcons = this.settings.get_boolean("show-control-icons");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS);
-        });
-        this.settings.connect("changed::show-control-icons-play", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-play", () => {
             this.showControlIconsPlay = this.settings.get_boolean("show-control-icons-play");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PLAYPAUSE);
-        });
-        this.settings.connect("changed::show-control-icons-next", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-next", () => {
             this.showControlIconsNext = this.settings.get_boolean("show-control-icons-next");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_NEXT);
-        });
-        this.settings.connect("changed::show-control-icons-previous", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-previous", () => {
             this.showControlIconsPrevious = this.settings.get_boolean("show-control-icons-previous");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PREVIOUS);
-        });
-        this.settings.connect("changed::show-control-icons-seek-forward", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-seek-forward", () => {
             this.showControlIconsSeekForward = this.settings.get_boolean("show-control-icons-seek-forward");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_FORWARD);
-        });
-        this.settings.connect("changed::show-control-icons-seek-backward", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-seek-backward", () => {
             this.showControlIconsSeekBackward = this.settings.get_boolean("show-control-icons-seek-backward");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_BACKWARD);
-        });
-        this.settings.connect("changed::colored-player-icon", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::colored-player-icon", () => {
             this.coloredPlayerIcon = this.settings.get_boolean("colored-player-icon");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
-        });
-        this.settings.connect("changed::extension-position", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::extension-position", () => {
             const enumIndex = this.settings.get_enum("extension-position");
             this.extensionPosition = enumValueByIndex(ExtensionPositions, enumIndex);
             this.removePanelButton();
             this.setActivePlayer();
-        });
-        this.settings.connect("changed::extension-index", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::extension-index", () => {
             this.extensionIndex = this.settings.get_uint("extension-index");
             this.removePanelButton();
             this.setActivePlayer();
-        });
-        this.settings.connect("changed::elements-order", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::elements-order", () => {
             this.elementsOrder = /** @type {ElementsOrder} */ (this.settings.get_strv("elements-order"));
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_NO_REPLACE);
-        });
-        this.settings.connect("changed::labels-order", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::labels-order", () => {
             this.labelsOrder = this.settings.get_strv("labels-order");
             this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
-        });
-        this.settings.connect("changed::mouse-action-left", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-left", () => {
             this.mouseActionLeft = this.settings.get_enum("mouse-action-left");
-        });
-        this.settings.connect("changed::mouse-action-middle", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-middle", () => {
             this.mouseActionMiddle = this.settings.get_enum("mouse-action-middle");
-        });
-        this.settings.connect("changed::mouse-action-right", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-right", () => {
             this.mouseActionRight = this.settings.get_enum("mouse-action-right");
-        });
-        this.settings.connect("changed::mouse-action-double", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-double", () => {
             this.mouseActionDouble = this.settings.get_enum("mouse-action-double");
-        });
-        this.settings.connect("changed::mouse-action-scroll-up", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-scroll-up", () => {
             this.mouseActionScrollUp = this.settings.get_enum("mouse-action-scroll-up");
-        });
-        this.settings.connect("changed::mouse-action-scroll-down", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-scroll-down", () => {
             this.mouseActionScrollDown = this.settings.get_enum("mouse-action-scroll-down");
-        });
-        this.settings.connect("changed::cache-art", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::cache-art", () => {
             this.cacheArt = this.settings.get_boolean("cache-art");
-        });
-        this.settings.connect("changed::blacklisted-players", () => {
+        }));
+        this.settingsHandlerIds.push(this.settings.connect("changed::blacklisted-players", () => {
             this.blacklistedPlayers = this.settings.get_strv("blacklisted-players");
             for (const playerProxy of this.playerProxies.values()) {
                 if (this.isPlayerBlacklisted(playerProxy.identity, playerProxy.desktopEntry)) {
@@ -459,14 +487,15 @@ export default class MediaControls extends Extension {
                 }
             }
             this.addRunningPlayers();
-        });
+        }));
     }
 
     /**
      * @private
+     * @param {number} generation
      * @returns {Promise<void>}
      */
-    async initProxies() {
+    async initProxies(generation) {
         // Load gresource for accessing D-Bus XML files
         const resourcePath = GLib.build_filenamev([this.path, "org.gnome.shell.extensions.mediacontrols.gresource"]);
         Gio.resources_register(Gio.resource_load(resourcePath));
@@ -482,6 +511,9 @@ export default class MediaControls extends Extension {
         const readResults = await Promise.all([mprisResult, watchResult]).catch(errorLog);
         if (readResults == null) {
             errorLog("Failed to read xml files");
+            return;
+        }
+        if (generation !== this.enableGeneration) {
             return;
         }
         const mprisBytes = readResults[0];
@@ -508,24 +540,32 @@ export default class MediaControls extends Extension {
         this.mprisIfaceInfo = mprisInterface;
         this.mprisPlayerIfaceInfo = mprisPlayerInterface;
         this.propertiesIfaceInfo = propertiesInterface;
-        const initWatchSuccess = await this.initWatchProxy().catch(errorLog);
+        const initWatchSuccess = await this.initWatchProxy(generation).catch(errorLog);
         if (initWatchSuccess === false) {
             errorLog("Failed to init watch proxy");
             return;
         }
-        await this.addRunningPlayers();
+        if (generation !== this.enableGeneration) {
+            return;
+        }
+        await this.addRunningPlayers(generation);
     }
 
     /**
      * @private
+     * @param {number} generation
      * @returns {Promise<boolean>}
      */
-    async initWatchProxy() {
-        this.watchProxy = await createDbusProxy(this.watchIfaceInfo, DBUS_IFACE_NAME, DBUS_OBJECT_PATH).catch(errorLog);
-        if (this.watchProxy == null) {
+    async initWatchProxy(generation) {
+        const watchProxy = await createDbusProxy(this.watchIfaceInfo, DBUS_IFACE_NAME, DBUS_OBJECT_PATH).catch(errorLog);
+        if (watchProxy == null) {
             return false;
         }
-        this.watchProxy.connectSignal("NameOwnerChanged", (proxy, senderName, [busName, oldOwner, newOwner]) => {
+        if (generation !== this.enableGeneration) {
+            return false;
+        }
+        this.watchProxy = watchProxy;
+        this.watchProxySignalId = this.watchProxy.connectSignal("NameOwnerChanged", (proxy, senderName, [busName, oldOwner, newOwner]) => {
             if (busName.startsWith(MPRIS_IFACE_NAME) === false) {
                 return;
             }
@@ -540,12 +580,16 @@ export default class MediaControls extends Extension {
 
     /**
      * @private
+     * @param {number} [generation]
      * @returns {Promise<void>}
      */
-    async addRunningPlayers() {
+    async addRunningPlayers(generation = this.enableGeneration) {
         const namesResult = await this.watchProxy.ListNamesAsync().catch(errorLog);
         if (namesResult == null) {
             errorLog("Failed to get bus names");
+            return;
+        }
+        if (generation !== this.enableGeneration) {
             return;
         }
         const busNames = namesResult[0];
@@ -553,7 +597,7 @@ export default class MediaControls extends Extension {
         for (const busName of busNames) {
             if (busName.startsWith(MPRIS_IFACE_NAME) === false) continue;
             if (this.playerProxies.has(busName)) continue;
-            promises.push(this.addPlayer(busName));
+            promises.push(this.addPlayer(busName, generation));
         }
         await Promise.all(promises).catch(errorLog);
     }
@@ -561,9 +605,10 @@ export default class MediaControls extends Extension {
     /**
      * @private
      * @param {string} busName
+     * @param {number} [generation]
      * @returns {Promise<void>}
      */
-    async addPlayer(busName) {
+    async addPlayer(busName, generation = this.enableGeneration) {
         debugLog("Adding player:", busName);
         try {
             const playerProxy = new PlayerProxy(busName);
@@ -572,6 +617,10 @@ export default class MediaControls extends Extension {
                 .catch(errorLog);
             if (initSuccess == null || initSuccess === false) {
                 errorLog("Failed to init player:", busName);
+                return;
+            }
+            if (generation !== this.enableGeneration) {
+                playerProxy.onDestroy();
                 return;
             }
             const isPlayerBlacklisted = this.isPlayerBlacklisted(playerProxy.identity, playerProxy.desktopEntry);
@@ -597,6 +646,9 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     removePlayer(busName) {
+        if (this.playerProxies == null) {
+            return;
+        }
         debugLog("Removing player:", busName);
         this.playerProxies.get(busName)?.onDestroy();
         this.playerProxies.delete(busName);
@@ -756,6 +808,10 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     destroySettings() {
+        for (const handlerId of this.settingsHandlerIds) {
+            this.settings.disconnect(handlerId);
+        }
+        this.settingsHandlerIds = null;
         this.settings = null;
         this.labelWidth = null;
         this.hideMediaNotification = null;

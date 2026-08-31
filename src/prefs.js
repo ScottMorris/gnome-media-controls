@@ -43,6 +43,11 @@ export default class MediaControlsPreferences extends ExtensionPreferences {
      * @type {Gtk.Builder}
      */
     builder;
+    /**
+     * @private
+     * @type {[Gtk.Widget | Gio.Settings, number][]}
+     */
+    manualBindingIds = [];
 
     /**
      * @private
@@ -157,6 +162,10 @@ export default class MediaControlsPreferences extends ExtensionPreferences {
         this.initWidgets();
         this.bindSettings();
         this.window.connect("close-request", () => {
+            for (const [obj, id] of this.manualBindingIds) {
+                obj.disconnect(id);
+            }
+            this.manualBindingIds = [];
             this.window = null;
             this.settings = null;
             this.builder = null;
@@ -195,34 +204,34 @@ export default class MediaControlsPreferences extends ExtensionPreferences {
         const shortcutEditorWindow = /** @type {Adw.Window} */ (this.builder.get_object("win-shortcut-editor"));
         const shortcutEditorLabel = /** @type {Gtk.ShortcutLabel} */ (this.builder.get_object("sl-shortcut-editor"));
 
+        const shortcutEditorController = new Gtk.EventControllerKey();
+        shortcutEditorWindow.add_controller(shortcutEditorController);
+        shortcutEditorController.connect("key-pressed", (_, keyval, keycode, state) => {
+            let mask = state & Gtk.accelerator_get_default_mod_mask();
+            mask &= ~Gdk.ModifierType.LOCK_MASK;
+            if (!mask && keyval === Gdk.KEY_Escape) {
+                shortcutEditorWindow.close();
+                return Gdk.EVENT_STOP;
+            }
+            if (!mask && keyval === Gdk.KEY_BackSpace) {
+                shortcutEditorLabel.accelerator = "";
+                return Gdk.EVENT_STOP;
+            }
+            if (!mask && keyval === Gdk.KEY_Return) {
+                const shortcut = shortcutEditorLabel.accelerator;
+                shortcutLabel.accelerator = shortcut;
+                this.settings.set_strv("mediacontrols-show-popup-menu", [shortcut]);
+                shortcutEditorWindow.close();
+                return Gdk.EVENT_STOP;
+            }
+            if (isValidBinding(mask, keycode, keyval) && isValidAccelerator(mask, keyval)) {
+                shortcutEditorLabel.accelerator = Gtk.accelerator_name_with_keycode(null, keyval, keycode, mask);
+            }
+            return Gdk.EVENT_STOP;
+        });
         shortcutRow.connect("activated", () => {
-            const controller = new Gtk.EventControllerKey();
-            shortcutEditorWindow.add_controller(controller);
             const currentShortcut = this.settings.get_strv("mediacontrols-show-popup-menu");
             shortcutEditorLabel.accelerator = currentShortcut[0];
-            controller.connect("key-pressed", (_, keyval, keycode, state) => {
-                let mask = state & Gtk.accelerator_get_default_mod_mask();
-                mask &= ~Gdk.ModifierType.LOCK_MASK;
-                if (!mask && keyval === Gdk.KEY_Escape) {
-                    shortcutEditorWindow.close();
-                    return Gdk.EVENT_STOP;
-                }
-                if (!mask && keyval === Gdk.KEY_BackSpace) {
-                    shortcutEditorLabel.accelerator = "";
-                    return Gdk.EVENT_STOP;
-                }
-                if (!mask && keyval === Gdk.KEY_Return) {
-                    const shortcut = shortcutEditorLabel.accelerator;
-                    shortcutLabel.accelerator = shortcut;
-                    this.settings.set_strv("mediacontrols-show-popup-menu", [shortcut]);
-                    shortcutEditorWindow.close();
-                    return Gdk.EVENT_STOP;
-                }
-                if (isValidBinding(mask, keycode, keyval) && isValidAccelerator(mask, keyval)) {
-                    shortcutEditorLabel.accelerator = Gtk.accelerator_name_with_keycode(null, keyval, keycode, mask);
-                }
-                return Gdk.EVENT_STOP;
-            });
             shortcutEditorWindow.present();
         });
         const cacheClearRow = /** @type {Adw.ActionRow} */ (this.builder.get_object("row-other-cache-clear"));
@@ -298,21 +307,23 @@ export default class MediaControlsPreferences extends ExtensionPreferences {
         if (property === "selected") {
             const widget = this.builder.get_object(widgetName);
             widget[property] = this.settings.get_enum(key);
-            widget.connect(`notify::${property}`, () => {
+            const widgetId = widget.connect(`notify::${property}`, () => {
                 this.settings.set_enum(key, widget[property]);
             });
-            this.settings.connect(`changed::${key}`, () => {
+            const settingsId = this.settings.connect(`changed::${key}`, () => {
                 widget[property] = this.settings.get_enum(key);
             });
+            this.manualBindingIds.push([widget, widgetId], [this.settings, settingsId]);
         } else if (property === "accelerator") {
             const widget = this.builder.get_object(widgetName);
             widget[property] = this.settings.get_strv(key)[0];
-            widget.connect(`notify::${property}`, () => {
+            const widgetId = widget.connect(`notify::${property}`, () => {
                 this.settings.set_strv(key, [widget[property]]);
             });
-            this.settings.connect(`changed::${key}`, () => {
+            const settingsId = this.settings.connect(`changed::${key}`, () => {
                 widget[property] = this.settings.get_strv(key)[0];
             });
+            this.manualBindingIds.push([widget, widgetId], [this.settings, settingsId]);
         } else {
             const widget = this.builder.get_object(widgetName);
             widget[property] = this.settings.get_value(key).recursiveUnpack();

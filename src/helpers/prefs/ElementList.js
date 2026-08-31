@@ -13,10 +13,22 @@ import { PanelElements } from "../../types/enums/common.js";
 
 class ElementList extends Adw.PreferencesGroup {
     /**
+     * @private
+     * @type {number}
+     */
+    static nextListId = 0;
+
+    /**
      * @public
      * @type {string[]}
      */
     elements;
+
+    /**
+     * @private
+     * @type {string}
+     */
+    listId;
 
     /**
      * @private
@@ -56,13 +68,21 @@ class ElementList extends Adw.PreferencesGroup {
         this.controlsRow = this._controls_row;
         this.controlsRow.elementKey = "CONTROLS";
         this.elements = [];
-        const dropTarget = Gtk.DropTarget.new(GObject.TYPE_UINT, Gdk.DragAction.MOVE);
-        dropTarget.connect("drop", (_, sourceIndex, x, y) => {
+        this.listId = `ElementList-${ElementList.nextListId++}`;
+        const dropTarget = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
+        dropTarget.connect("drop", (_, payload, x, y) => {
             const targetRow = this.listBox.get_row_at_y(y);
-            if (targetRow == null || sourceIndex == null) return;
-            // TODO: find out typeof of sourceIndex
-            // @ts-expect-error sourceIndex is a number
-            const index = /** @type {number} */ (sourceIndex);
+            if (targetRow == null || payload == null) return;
+            // Gtk.DropTarget's "drop" signal declares payload as a GObject.Value (it carries
+            // whatever GType was passed to Gtk.DropTarget.new()), but GJS unwraps it to the
+            // plain string we configured via GObject.TYPE_STRING before it reaches this callback.
+            const [originId, indexStr] = /** @type {string} */ (/** @type {unknown} */ (payload)).split("|");
+            // Reject drags that didn't start on this list instance (e.g. dragged from LabelList).
+            if (originId !== this.listId) {
+                this.listBox.drag_unhighlight_row();
+                return;
+            }
+            const index = Number(indexStr);
             const sourceValue = this.elements[index];
             const targetIndex = targetRow.get_index();
             this.elements.splice(targetIndex > index ? targetIndex + 1 : targetIndex, 0, sourceValue);
@@ -100,8 +120,9 @@ class ElementList extends Adw.PreferencesGroup {
                 const row = /** @type {Adw.ActionRow} */ (dragSource.widget);
                 const index = row.get_index();
                 const value = new GObject.Value();
-                value.init(GObject.TYPE_UINT);
-                value.set_uint(index);
+                value.init(GObject.TYPE_STRING);
+                // Encode the originating list's id so the drop handler can reject drags from sibling lists.
+                value.set_string(`${this.listId}|${index}`);
                 const content = Gdk.ContentProvider.new_for_value(value);
                 return content;
             });

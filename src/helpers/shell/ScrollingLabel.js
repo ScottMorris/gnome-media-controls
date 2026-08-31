@@ -2,7 +2,7 @@ import Clutter from "gi://Clutter";
 import GObject from "gi://GObject";
 import Pango from "gi://Pango";
 import St from "gi://St";
-import GLib from "gi://GLib"
+import GLib from "gi://GLib";
 import { debugLog } from "../../utils/common.js";
 
 /**
@@ -169,7 +169,7 @@ class ScrollingLabel extends St.ScrollView {
             this.label.disconnect(this.onMappedId);
             this.onMappedId = null;
         }
-        
+
         if (this.initialPauseTimerId != null) {
             GLib.source_remove(this.initialPauseTimerId);
             this.initialPauseTimerId = null;
@@ -179,7 +179,7 @@ class ScrollingLabel extends St.ScrollView {
             GLib.source_remove(this.cyclePauseTimerId);
             this.cyclePauseTimerId = null;
         }
-        
+
         super.destroy();
     }
 
@@ -283,7 +283,7 @@ class ScrollingLabel extends St.ScrollView {
 
         this.transition.connect("completed", () => {
             this.transition.rewind(); // Snap back to 0
-            
+
             if (this.scrollPauseTime > 0) {
                 if (this.cyclePauseTimerId != null) {
                     GLib.source_remove(this.cyclePauseTimerId);

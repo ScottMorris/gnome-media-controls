@@ -15,9 +15,13 @@ Package manager is pnpm.
 - `pnpm run ext:install` / `ext:uninstall` / `ext:enable` / `ext:disable` / `ext:prefs` — manage the built extension via `gnome-extensions`
 - `pnpm debug` — run a nested GNOME Shell session (Wayland) with `SHELL_DEBUG=all` for live debugging
 - `pnpm run format` — run Prettier on the whole repo
+- `pnpm run format:check` — check Prettier formatting without writing changes (what CI runs)
+- `pnpm run typecheck` — run `tsc --noEmit -p jsconfig.json` against the JSDoc-typed sources
 - `pnpm run translations` — extract strings to the `.pot` file and merge into all `.po` files under `assets/locale/`
 
-There is no automated test suite or linter script in this repo — verification is manual (build, install, and exercise the extension in a real or nested GNOME Shell session, plus the preferences window via `ext:prefs`).
+Two automated checks now run in CI, both against the prebuilt `ghcr.io/scottmorris/gnome-media-controls-ci` image (GNOME Shell + Node/pnpm preinstalled, built from `test/headless/Dockerfile`): `.github/workflows/checks.yml` runs `format:check`, `pnpm build`, and `typecheck` on every push to `main` and every pull request (`typecheck` is currently non-blocking — see its open triage issue — while formatting and the build are hard gates); `.github/workflows/headless-smoke-test.yml` runs `test/headless/run_smoke_test.sh`, which builds and installs the extension, launches a headless `gnome-shell --unsafe-mode` session alongside a fake MPRIS player (`test/headless/fake_mpris_player.mjs`), and asserts via `org.gnome.Shell.Eval` that the panel widget's title label actually reflects the fake player's metadata. There is otherwise no broader automated test suite or linter script — everything else is still verified manually (build, install, and exercise the extension in a real or nested GNOME Shell session, plus the preferences window via `ext:prefs`).
+
+The CI image itself is rebuilt automatically (`.github/workflows/ci-image.yml`, on changes to `test/headless/Dockerfile`, and monthly on a schedule since Arch is a rolling release) and pushed to GHCR; to rebuild and push it manually, run the "Build CI image" workflow via `workflow_dispatch`, or build `test/headless/Dockerfile` locally with `docker build -t ghcr.io/scottmorris/gnome-media-controls-ci:latest test/headless` and push it if you have registry access.
 
 There is no separate "watch" mode: after editing `src/`, re-run `pnpm build && pnpm run ext:install`, then reload GNOME Shell (X11: Alt+F2, `r`, Enter; Wayland: log out/in or use `pnpm debug` for a nested session) to pick up changes.
 

@@ -375,119 +375,179 @@ export default class MediaControls extends Extension {
         this.mouseActionScrollDown = this.settings.get_enum("mouse-action-scroll-down");
         this.cacheArt = this.settings.get_boolean("cache-art");
         this.blacklistedPlayers = this.settings.get_strv("blacklisted-players");
-        this.settingsHandlerIds.push(this.settings.connect("changed::label-width", () => {
-            this.labelWidth = this.settings.get_uint("label-width");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::fixed-label-width", () => {
-            this.isFixedLabelWidth = this.settings.get_boolean("fixed-label-width");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-labels", () => {
-            this.scrollLabels = this.settings.get_boolean("scroll-labels");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-speed", () => {
-            this.scrollSpeed = this.settings.get_uint("scroll-speed");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::scroll-pause-time", () => {
-            this.scrollPauseTime = this.settings.get_uint("scroll-pause-time") * 1000;
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::hide-media-notification", () => {
-            this.hideMediaNotification = this.settings.get_boolean("hide-media-notification");
-            this.updateMediaNotificationVisiblity();
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-track-slider", () => {
-            this.showTrackSlider = this.settings.get_boolean("show-track-slider");
-            this.panelBtn?.updateWidgets(WidgetFlags.MENU_SLIDER);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-label", () => {
-            this.showLabel = this.settings.get_boolean("show-label");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-player-icon", () => {
-            this.showPlayerIcon = this.settings.get_boolean("show-player-icon");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons", () => {
-            this.showControlIcons = this.settings.get_boolean("show-control-icons");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-play", () => {
-            this.showControlIconsPlay = this.settings.get_boolean("show-control-icons-play");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PLAYPAUSE);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-next", () => {
-            this.showControlIconsNext = this.settings.get_boolean("show-control-icons-next");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_NEXT);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-previous", () => {
-            this.showControlIconsPrevious = this.settings.get_boolean("show-control-icons-previous");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PREVIOUS);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-seek-forward", () => {
-            this.showControlIconsSeekForward = this.settings.get_boolean("show-control-icons-seek-forward");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_FORWARD);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::show-control-icons-seek-backward", () => {
-            this.showControlIconsSeekBackward = this.settings.get_boolean("show-control-icons-seek-backward");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_BACKWARD);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::colored-player-icon", () => {
-            this.coloredPlayerIcon = this.settings.get_boolean("colored-player-icon");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::extension-position", () => {
-            const enumIndex = this.settings.get_enum("extension-position");
-            this.extensionPosition = enumValueByIndex(ExtensionPositions, enumIndex);
-            this.removePanelButton();
-            this.setActivePlayer();
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::extension-index", () => {
-            this.extensionIndex = this.settings.get_uint("extension-index");
-            this.removePanelButton();
-            this.setActivePlayer();
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::elements-order", () => {
-            this.elementsOrder = /** @type {ElementsOrder} */ (this.settings.get_strv("elements-order"));
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_NO_REPLACE);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::labels-order", () => {
-            this.labelsOrder = this.settings.get_strv("labels-order");
-            this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-left", () => {
-            this.mouseActionLeft = this.settings.get_enum("mouse-action-left");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-middle", () => {
-            this.mouseActionMiddle = this.settings.get_enum("mouse-action-middle");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-right", () => {
-            this.mouseActionRight = this.settings.get_enum("mouse-action-right");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-double", () => {
-            this.mouseActionDouble = this.settings.get_enum("mouse-action-double");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-scroll-up", () => {
-            this.mouseActionScrollUp = this.settings.get_enum("mouse-action-scroll-up");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::mouse-action-scroll-down", () => {
-            this.mouseActionScrollDown = this.settings.get_enum("mouse-action-scroll-down");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::cache-art", () => {
-            this.cacheArt = this.settings.get_boolean("cache-art");
-        }));
-        this.settingsHandlerIds.push(this.settings.connect("changed::blacklisted-players", () => {
-            this.blacklistedPlayers = this.settings.get_strv("blacklisted-players");
-            for (const playerProxy of this.playerProxies.values()) {
-                if (this.isPlayerBlacklisted(playerProxy.identity, playerProxy.desktopEntry)) {
-                    this.removePlayer(playerProxy.busName);
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::label-width", () => {
+                this.labelWidth = this.settings.get_uint("label-width");
+                this.panelBtn?.updateWidgets(
+                    WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE,
+                );
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::fixed-label-width", () => {
+                this.isFixedLabelWidth = this.settings.get_boolean("fixed-label-width");
+                this.panelBtn?.updateWidgets(
+                    WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS | WidgetFlags.MENU_IMAGE,
+                );
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::scroll-labels", () => {
+                this.scrollLabels = this.settings.get_boolean("scroll-labels");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::scroll-speed", () => {
+                this.scrollSpeed = this.settings.get_uint("scroll-speed");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::scroll-pause-time", () => {
+                this.scrollPauseTime = this.settings.get_uint("scroll-pause-time") * 1000;
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL | WidgetFlags.MENU_LABELS);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::hide-media-notification", () => {
+                this.hideMediaNotification = this.settings.get_boolean("hide-media-notification");
+                this.updateMediaNotificationVisiblity();
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-track-slider", () => {
+                this.showTrackSlider = this.settings.get_boolean("show-track-slider");
+                this.panelBtn?.updateWidgets(WidgetFlags.MENU_SLIDER);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-label", () => {
+                this.showLabel = this.settings.get_boolean("show-label");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-player-icon", () => {
+                this.showPlayerIcon = this.settings.get_boolean("show-player-icon");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons", () => {
+                this.showControlIcons = this.settings.get_boolean("show-control-icons");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons-play", () => {
+                this.showControlIconsPlay = this.settings.get_boolean("show-control-icons-play");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PLAYPAUSE);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons-next", () => {
+                this.showControlIconsNext = this.settings.get_boolean("show-control-icons-next");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_NEXT);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons-previous", () => {
+                this.showControlIconsPrevious = this.settings.get_boolean("show-control-icons-previous");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_PREVIOUS);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons-seek-forward", () => {
+                this.showControlIconsSeekForward = this.settings.get_boolean("show-control-icons-seek-forward");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_FORWARD);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::show-control-icons-seek-backward", () => {
+                this.showControlIconsSeekBackward = this.settings.get_boolean("show-control-icons-seek-backward");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_CONTROLS_SEEK_BACKWARD);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::colored-player-icon", () => {
+                this.coloredPlayerIcon = this.settings.get_boolean("colored-player-icon");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_ICON);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::extension-position", () => {
+                const enumIndex = this.settings.get_enum("extension-position");
+                this.extensionPosition = enumValueByIndex(ExtensionPositions, enumIndex);
+                this.removePanelButton();
+                this.setActivePlayer();
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::extension-index", () => {
+                this.extensionIndex = this.settings.get_uint("extension-index");
+                this.removePanelButton();
+                this.setActivePlayer();
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::elements-order", () => {
+                this.elementsOrder = /** @type {ElementsOrder} */ (this.settings.get_strv("elements-order"));
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_NO_REPLACE);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::labels-order", () => {
+                this.labelsOrder = this.settings.get_strv("labels-order");
+                this.panelBtn?.updateWidgets(WidgetFlags.PANEL_LABEL);
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-left", () => {
+                this.mouseActionLeft = this.settings.get_enum("mouse-action-left");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-middle", () => {
+                this.mouseActionMiddle = this.settings.get_enum("mouse-action-middle");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-right", () => {
+                this.mouseActionRight = this.settings.get_enum("mouse-action-right");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-double", () => {
+                this.mouseActionDouble = this.settings.get_enum("mouse-action-double");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-scroll-up", () => {
+                this.mouseActionScrollUp = this.settings.get_enum("mouse-action-scroll-up");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::mouse-action-scroll-down", () => {
+                this.mouseActionScrollDown = this.settings.get_enum("mouse-action-scroll-down");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::cache-art", () => {
+                this.cacheArt = this.settings.get_boolean("cache-art");
+            }),
+        );
+        this.settingsHandlerIds.push(
+            this.settings.connect("changed::blacklisted-players", () => {
+                this.blacklistedPlayers = this.settings.get_strv("blacklisted-players");
+                for (const playerProxy of this.playerProxies.values()) {
+                    if (this.isPlayerBlacklisted(playerProxy.identity, playerProxy.desktopEntry)) {
+                        this.removePlayer(playerProxy.busName);
+                    }
                 }
-            }
-            this.addRunningPlayers();
-        }));
+                this.addRunningPlayers();
+            }),
+        );
     }
 
     /**
@@ -557,7 +617,9 @@ export default class MediaControls extends Extension {
      * @returns {Promise<boolean>}
      */
     async initWatchProxy(generation) {
-        const watchProxy = await createDbusProxy(this.watchIfaceInfo, DBUS_IFACE_NAME, DBUS_OBJECT_PATH).catch(errorLog);
+        const watchProxy = await createDbusProxy(this.watchIfaceInfo, DBUS_IFACE_NAME, DBUS_OBJECT_PATH).catch(
+            errorLog,
+        );
         if (watchProxy == null) {
             return false;
         }
@@ -565,16 +627,19 @@ export default class MediaControls extends Extension {
             return false;
         }
         this.watchProxy = watchProxy;
-        this.watchProxySignalId = this.watchProxy.connectSignal("NameOwnerChanged", (proxy, senderName, [busName, oldOwner, newOwner]) => {
-            if (busName.startsWith(MPRIS_IFACE_NAME) === false) {
-                return;
-            }
-            if (newOwner === "") {
-                this.removePlayer(busName);
-            } else if (oldOwner === "") {
-                this.addPlayer(busName);
-            }
-        });
+        this.watchProxySignalId = this.watchProxy.connectSignal(
+            "NameOwnerChanged",
+            (proxy, senderName, [busName, oldOwner, newOwner]) => {
+                if (busName.startsWith(MPRIS_IFACE_NAME) === false) {
+                    return;
+                }
+                if (newOwner === "") {
+                    this.removePlayer(busName);
+                } else if (oldOwner === "") {
+                    this.addPlayer(busName);
+                }
+            },
+        );
         return true;
     }
 

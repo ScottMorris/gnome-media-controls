@@ -1,3 +1,9 @@
+# Media Controls
+
+<p align="center">
+  <img src="assets/hero.svg" alt="Media Controls — now-playing media controls in the GNOME top panel via MPRIS. Animated banner showing a mock GNOME panel bar with a scrolling track label and a popup with album art, a seek slider, and transport controls." width="100%">
+</p>
+
 ## About this fork
 
 This is a personal fork of [sakithb/media-controls](https://github.com/sakithb/media-controls), which was archived by its original author on 2026-04-22 and is no longer maintained upstream. All credit for the original design and implementation goes to sakithb and the project's contributors — this fork exists to keep the extension working on current GNOME Shell versions.

@@ -11,7 +11,9 @@ jobs:
   upload:
     name: Build and upload
     runs-on: ubuntu-latest
-    if: github.event.release.prerelease == false
+    # Disabled: this fork doesn't publish to extensions.gnome.org and has no EGO_PASSWORD secret.
+    # Re-enable (and update `ext:upload`'s --user in package.json to your own EGO account) if that changes.
+    if: false
     container:
       image: ubuntu:25.10
 

@@ -99,7 +99,7 @@
             <child>
               <object class="GtkLinkButton" id="lb-general-homepage">
                 <property name="icon-name">go-next-symbolic</property>
-                <property name="uri">https://github.com/sakithb/media-controls/blob/main/README.md</property>
+                <property name="uri">https://github.com/ScottMorris/gnome-media-controls/blob/main/README.md</property>
                 <property name="margin-top">10</property>
                 <property name="margin-bottom">10</property>
               </object>
@@ -113,7 +113,7 @@
             <child>
               <object class="GtkLinkButton" id="lb-general-notes">
                 <property name="icon-name">go-next-symbolic</property>
-                <property name="uri">https://github.com/sakithb/media-controls/releases/latest</property>
+                <property name="uri">https://github.com/ScottMorris/gnome-media-controls/releases/latest</property>
                 <property name="margin-top">10</property>
                 <property name="margin-bottom">10</property>
               </object>
@@ -128,7 +128,7 @@
               <object class="GtkLinkButton" id="lb-general-issues">
                 <property name="label" translatable="yes">Report an issue</property>
                 <property name="icon-name">go-next-symbolic</property>
-                <property name="uri">https://github.com/sakithb/media-controls/issues</property>
+                <property name="uri">https://github.com/ScottMorris/gnome-media-controls/issues</property>
                 <property name="margin-top">10</property>
                 <property name="margin-bottom">10</property>
               </object>

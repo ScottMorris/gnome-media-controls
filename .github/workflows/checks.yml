@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    name: Build, format, and type-check
+  format:
+    name: Format (prettier --check)
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
@@ -34,27 +34,73 @@ jobs:
         id: format
         run: pnpm run format:check
 
+      - name: Write summary
+        if: always()
+        run: |
+          if [ "${{ steps.format.outcome }}" = "success" ]; then
+            echo "### ✅ Formatting is clean" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Formatting check failed -- run \`pnpm run format\` locally and commit the result" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  build:
+    name: Build (pnpm build)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Build
         id: build
         run: pnpm build
 
+      - name: Write summary
+        if: always()
+        run: |
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            echo "### ✅ Build succeeded" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Build failed" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  typecheck:
+    name: Type-check (tsc --noEmit, non-blocking)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Type-check
         id: typecheck
         # Pre-existing type-error backlog, see issue #4 -- flip this to a hard
-        # gate once that's triaged and this step is actually clean.
+        # gate once that's triaged and this step (and thus this job) is
+        # actually clean.
         continue-on-error: true
         run: pnpm run typecheck
 
       - name: Write summary
         if: always()
         run: |
-          icon() { [ "$1" = "success" ] && echo "✅" || echo "❌"; }
-          {
-            echo "### Checks"
-            echo
-            echo "| Check | Result |"
-            echo "| --- | --- |"
-            echo "| Formatting (\`prettier --check\`) | $(icon '${{ steps.format.outcome }}') ${{ steps.format.outcome }} |"
-            echo "| Build (\`pnpm build\`) | $(icon '${{ steps.build.outcome }}') ${{ steps.build.outcome }} |"
-            echo "| Type-check (\`tsc --noEmit\`, non-blocking, [#4](https://github.com/scottmorris/gnome-media-controls/issues/4)) | $(icon '${{ steps.typecheck.outcome }}') ${{ steps.typecheck.outcome }} |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.typecheck.outcome }}" = "success" ]; then
+            echo "### ✅ Type-check is clean" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ⚠️ Type-check found pre-existing errors (non-blocking, see [#4](https://github.com/scottmorris/gnome-media-controls/issues/4))" >> "$GITHUB_STEP_SUMMARY"
+          fi

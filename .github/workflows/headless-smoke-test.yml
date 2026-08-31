@@ -1,0 +1,43 @@
+name: Headless smoke test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    name: Panel widget smoke test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run headless panel widget smoke test
+        id: smoke
+        run: bash test/headless/run_smoke_test.sh
+
+      - name: Write summary
+        if: always()
+        run: |
+          if [ "${{ steps.smoke.outcome }}" = "success" ]; then
+            echo "### ✅ Panel widget smoke test passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "The panel widget's title label reflected the fake MPRIS player's metadata, read back via \`org.gnome.Shell.Eval\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ❌ Panel widget smoke test failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "See the \"Run headless panel widget smoke test\" step log above for the shell/player output." >> "$GITHUB_STEP_SUMMARY"
+          fi

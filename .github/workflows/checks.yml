@@ -1,0 +1,60 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Build, format, and type-check
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/scottmorris/gnome-media-controls-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        id: format
+        run: pnpm run format:check
+
+      - name: Build
+        id: build
+        run: pnpm build
+
+      - name: Type-check
+        id: typecheck
+        # Pre-existing type-error backlog, see issue #4 -- flip this to a hard
+        # gate once that's triaged and this step is actually clean.
+        continue-on-error: true
+        run: pnpm run typecheck
+
+      - name: Write summary
+        if: always()
+        run: |
+          icon() { [ "$1" = "success" ] && echo "✅" || echo "❌"; }
+          {
+            echo "### Checks"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Formatting (\`prettier --check\`) | $(icon '${{ steps.format.outcome }}') ${{ steps.format.outcome }} |"
+            echo "| Build (\`pnpm build\`) | $(icon '${{ steps.build.outcome }}') ${{ steps.build.outcome }} |"
+            echo "| Type-check (\`tsc --noEmit\`, non-blocking, [#4](https://github.com/scottmorris/gnome-media-controls/issues/4)) | $(icon '${{ steps.typecheck.outcome }}') ${{ steps.typecheck.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

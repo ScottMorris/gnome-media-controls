@@ -47,22 +47,32 @@ class AppChooser extends Adw.Window {
             row.add_prefix(icon);
             this.listBox.append(row);
         }
-        this.cancelBtn.connect("clicked", () => {
-            this.close();
-        });
     }
 
     /**
      * @public
-     * @returns {Promise<string>}
+     * @returns {Promise<string | null>}
      */
     showChooser() {
         return new Promise((resolve) => {
-            const signalId = this.selectBtn.connect("clicked", () => {
+            // Cancel must also tear down the pending Select listener (and vice versa), so a
+            // canceled showChooser() never leaves a stale listener for the next call to double-fire.
+            const cleanup = () => {
+                this.selectBtn.disconnect(selectSignalId);
+                this.cancelBtn.disconnect(cancelSignalId);
+            };
+            const selectSignalId = this.selectBtn.connect("clicked", () => {
+                const row = /** @type {Adw.ActionRow | null} */ (this.listBox.get_selected_row());
+                // No row selected: keep the dialog open instead of resolving/throwing.
+                if (!row) return;
+                cleanup();
                 this.close();
-                this.selectBtn.disconnect(signalId);
-                const row = /** @type {Adw.ActionRow} */ (this.listBox.get_selected_row());
                 resolve(row.subtitle);
+            });
+            const cancelSignalId = this.cancelBtn.connect("clicked", () => {
+                cleanup();
+                this.close();
+                resolve(null);
             });
             this.present();
         });

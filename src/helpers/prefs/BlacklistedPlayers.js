@@ -44,6 +44,7 @@ class BlacklistedPlayers extends Adw.PreferencesGroup {
         this.addBtn.connect("clicked", async () => {
             const appId = await this.appChooser.showChooser().catch(errorLog);
             if (appId == null) return;
+            if (this.players.includes(appId)) return;
             this.players.unshift(appId);
             this.notify("players");
             this.addElements();
@@ -79,11 +80,11 @@ class BlacklistedPlayers extends Adw.PreferencesGroup {
             return;
         }
         const apps = Gio.AppInfo.get_all();
-        for (const player of this.players) {
+        this.players.forEach((player, index) => {
             const row = new Adw.ActionRow();
             const app = apps.find((app) => app.get_id() === player);
             if (!app) {
-                continue;
+                return;
             }
             row.title = app.get_display_name();
             const icon = new Gtk.Image({ gicon: app.get_icon(), iconSize: Gtk.IconSize.LARGE });
@@ -95,13 +96,14 @@ class BlacklistedPlayers extends Adw.PreferencesGroup {
             deleteBtn.add_css_class("circular");
             row.add_suffix(deleteBtn);
             deleteBtn.connect("clicked", () => {
-                const index = this.players.indexOf(player);
+                // Splice this row's own captured index rather than indexOf(player), which
+                // would always remove the first matching entry when the array has duplicates.
                 this.players.splice(index, 1);
                 this.notify("players");
                 this.addElements();
             });
             this.listBox.append(row);
-        }
+        });
     }
 }
 

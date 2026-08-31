@@ -1,3 +1,5 @@
+/** @import { ValuesOf } from '../types/misc.js' */
+
 /**
  * @param {...unknown} [args]
  * @returns {void}
@@ -18,20 +20,15 @@ export const errorLog = (...args) => {
  * @template T
  * @param {T} enumObject
  * @param {number} index
- * @returns {any}
+ * @returns {ValuesOf<T> | undefined}
  */
 export const enumValueByIndex = (enumObject, index) => {
-    return Object.values(enumObject)[index];
-};
-
-/**
- * @template T
- * @param {T} enumObject
- * @param {unknown} value
- * @returns {string}
- */
-export const enumKeyByValue = (enumObject, value) => {
-    return Object.keys(enumObject).find((key) => enumObject[key] === value);
+    const values = Object.values(enumObject);
+    if (index < 0 || index >= values.length) {
+        errorLog(`enumValueByIndex: index ${index} out of bounds`);
+        return undefined;
+    }
+    return values[index];
 };
 
 /**

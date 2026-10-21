@@ -12,7 +12,7 @@ import GLib from "gi://GLib";
 /**
  * @typedef {Map<
  *     KeysOf<PlayerProxyProperties>,
- *     ((value: PlayerProxyProperties[KeysOf<PlayerProxyProperties>]) => void)[]
+ *     Map<number, (value: PlayerProxyProperties[KeysOf<PlayerProxyProperties>]) => void>
  * >} PlayerProxyChangeListeners
  */
 
@@ -43,6 +43,17 @@ export default class PlayerProxy {
      */
     changeListeners;
     /**
+     * Listener ids are never reused or shifted, so removing one listener can't invalidate another's id
+     * @private
+     * @type {number}
+     */
+    nextListenerId;
+    /**
+     * @private
+     * @type {boolean}
+     */
+    isDestroyed;
+    /**
      * @private
      * @type {number | null}
      */
@@ -72,6 +83,8 @@ export default class PlayerProxy {
         this.isPinned = false;
         this.isInvalid = true;
         this.changeListeners = new Map();
+        this.nextListenerId = 0;
+        this.isDestroyed = false;
     }
 
     /**
@@ -99,6 +112,9 @@ export default class PlayerProxy {
         this.propertiesChangedId = this.propertiesProxy.connectSignal(
             "PropertiesChanged",
             (proxy, senderName, [, changedProperties]) => {
+                if (this.isDestroyed) {
+                    return;
+                }
                 for (const [property, value] of Object.entries(changedProperties)) {
                     this.mprisPlayerProxy.set_cached_property(property, value);
                     this.callOnChangedListeners(
@@ -155,8 +171,8 @@ export default class PlayerProxy {
         this.pollSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => {
             count--;
 
-            // If source was already removed by a previous Promise handler, stop polling
-            if (this.pollSourceId == null) {
+            // If source was already removed by a previous Promise handler or the proxy was destroyed, stop polling
+            if (this.pollSourceId == null || this.isDestroyed) {
                 return GLib.SOURCE_REMOVE;
             }
 
@@ -235,11 +251,14 @@ export default class PlayerProxy {
      * @returns {void}
      */
     callOnChangedListeners(property, value) {
+        if (this.isDestroyed) {
+            return;
+        }
         const listeners = this.changeListeners.get(property);
         if (listeners == null) {
             return;
         }
-        for (const listener of listeners) {
+        for (const listener of [...listeners.values()]) {
             try {
                 listener(value);
             } catch (error) {
@@ -582,15 +601,13 @@ export default class PlayerProxy {
      * @returns {number}
      */
     onChanged(property, callback) {
-        const listeners = this.changeListeners.get(property);
-        let id;
+        let listeners = this.changeListeners.get(property);
         if (listeners == null) {
-            id = 0;
-            this.changeListeners.set(property, [callback]);
-        } else {
-            id = listeners.length;
-            listeners.push(callback);
+            listeners = new Map();
+            this.changeListeners.set(property, listeners);
         }
+        const id = this.nextListenerId++;
+        listeners.set(id, callback);
         return id;
     }
 
@@ -602,11 +619,7 @@ export default class PlayerProxy {
      * @returns {void}
      */
     removeListener(property, id) {
-        const listeners = this.changeListeners.get(property);
-        if (listeners == null) {
-            return;
-        }
-        listeners.splice(id, 1);
+        this.changeListeners.get(property)?.delete(id);
     }
 
     /**
@@ -614,6 +627,7 @@ export default class PlayerProxy {
      * @returns {void}
      */
     onDestroy() {
+        this.isDestroyed = true;
         if (this.pollSourceId != null) {
             GLib.source_remove(this.pollSourceId);
             // Clear the ID so an in-flight poll promise doesn't keep firing listeners after teardown

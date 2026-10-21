@@ -226,6 +226,10 @@ class PanelButton extends PanelMenu.Button {
      * @returns {void}
      */
     updateWidgets(flags) {
+        // The shell can destroy the button (clearing playerProxy) while the extension still holds a reference to it
+        if (this.playerProxy == null) {
+            return;
+        }
         if (this.buttonBox == null) {
             this.buttonBox = new St.BoxLayout({
                 styleClass: "panel-button-box",
@@ -1059,8 +1063,9 @@ class PanelButton extends PanelMenu.Button {
      */
     removeProxyListeners() {
         for (const [property, id] of this.changeListenerIds.entries()) {
-            this.playerProxy.removeListener(property, id);
+            this.playerProxy?.removeListener(property, id);
         }
+        this.changeListenerIds.clear();
         this.unsubscribeSeeked?.();
         this.unsubscribeSeeked = null;
     }

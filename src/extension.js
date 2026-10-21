@@ -219,7 +219,7 @@ export default class MediaControls extends Extension {
 
     /**
      * @private
-     * @type {InstanceType<typeof PanelButton>}
+     * @type {InstanceType<typeof PanelButton> | null}
      */
     panelBtn;
 
@@ -878,7 +878,14 @@ export default class MediaControls extends Extension {
         if (playerProxy == null) {
             return;
         }
-        this.panelBtn = new PanelButton(playerProxy, this);
+        const panelBtn = new PanelButton(playerProxy, this);
+        this.panelBtn = panelBtn;
+        // The shell can destroy the button itself (e.g. when the panel is torn down); drop our reference so we never touch a disposed object
+        panelBtn.connect("destroy", () => {
+            if (this.panelBtn === panelBtn) {
+                this.panelBtn = null;
+            }
+        });
         Main.panel.addToStatusArea("Media Controls", this.panelBtn, this.extensionIndex, this.extensionPosition);
     }
 

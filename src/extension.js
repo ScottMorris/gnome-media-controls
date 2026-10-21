@@ -327,7 +327,11 @@ export default class MediaControls extends Extension {
         } finally {
             // Stop each player's poll timer and D-Bus signal handler so nothing calls back into a disabled extension, even if the teardown above threw
             for (const playerProxy of playerProxies?.values() ?? []) {
-                playerProxy.onDestroy();
+                try {
+                    playerProxy.onDestroy();
+                } catch (error) {
+                    errorLog("Failed to destroy player:", playerProxy.busName, error);
+                }
             }
         }
         debugLog("Disabled");
@@ -692,9 +696,11 @@ export default class MediaControls extends Extension {
                 .catch(errorLog);
             if (initSuccess == null || initSuccess === false) {
                 errorLog("Failed to init player:", busName);
+                playerProxy.onDestroy();
                 return;
             }
-            if (generation !== this.enableGeneration) {
+            if (generation !== this.enableGeneration || this.playerProxies?.has(busName)) {
+                // Superseded by a disable/enable cycle, or another addPlayer() for this bus name already won the race
                 playerProxy.onDestroy();
                 return;
             }
@@ -741,6 +747,9 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     setActivePlayer() {
+        if (this.playerProxies == null) {
+            return;
+        }
         if (this.playerProxies.size === 0) {
             if (this.panelBtn != null) {
                 this.removePanelButton();

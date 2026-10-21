@@ -1,15 +1,32 @@
 // Utils only used in the extension. Do not import this file in the preferences window because Shell is not available there.
 
+import Clutter from "gi://Clutter";
 import GLib from "gi://GLib";
 import Soup from "gi://Soup";
 import Shell from "gi://Shell";
 import Gio from "gi://Gio";
+import St from "gi://St";
 import { errorLog } from "./common.js";
 
 Gio._promisify(Gio.DBusProxy, "new", "new_finish");
 Gio._promisify(Gio.File.prototype, "replace_contents_bytes_async", "replace_contents_finish");
 Gio._promisify(Gio.File.prototype, "read_async", "read_finish");
 Gio._promisify(Soup.Session.prototype, "send_and_read_async", "send_and_read_finish");
+
+/**
+ * Makes a St.BoxLayout (or subclass) lay out its children vertically. GNOME Shell 51 removed `St.BoxLayout.vertical`/`set_vertical()` in favour of the Clutter `orientation` property, so prefer that when present.
+ * @param {St.BoxLayout} box
+ * @returns {void}
+ */
+export const setVertical = (box) => {
+    // Loosely typed on purpose: which of the two APIs exists depends on the running shell version.
+    const anyBox = /** @type {any} */ (box);
+    if ("orientation" in anyBox) {
+        anyBox.orientation = Clutter.Orientation.VERTICAL;
+    } else {
+        anyBox.set_vertical(true);
+    }
+};
 
 // TODO: sort this out
 

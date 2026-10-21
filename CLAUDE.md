@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A GNOME Shell extension ("Media Controls") that shows a panel button with the currently playing media (via MPRIS/D-Bus) — title/artist, album art, play/pause/next/previous/loop/shuffle, a seek slider, and a preferences window. Plain JS (JSDoc-typed, no TypeScript compilation step — `@girs` packages + `global.d.ts` provide ambient types for editor/type-checking only). Targets GNOME Shell 46-50.
+A GNOME Shell extension ("Media Controls") that shows a panel button with the currently playing media (via MPRIS/D-Bus) — title/artist, album art, play/pause/next/previous/loop/shuffle, a seek slider, and a preferences window. Plain JS (JSDoc-typed, no TypeScript compilation step — `@girs` packages + `global.d.ts` provide ambient types for editor/type-checking only). Targets GNOME Shell 46-51.
 
 ## Commands
 

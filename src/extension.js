@@ -308,6 +308,7 @@ export default class MediaControls extends Extension {
      */
     disable() {
         this.enableGeneration = (this.enableGeneration ?? 0) + 1;
+        const playerProxies = this.playerProxies;
         this.playerProxies = null;
         this.destroySettings();
         this.watchIfaceInfo = null;
@@ -320,6 +321,10 @@ export default class MediaControls extends Extension {
         this.watchProxySignalId = null;
         this.watchProxy = null;
         this.removePanelButton();
+        // Stop each player's poll timer and D-Bus signal handler so nothing calls back into a disabled extension
+        for (const playerProxy of playerProxies?.values() ?? []) {
+            playerProxy.onDestroy();
+        }
         this.updateMediaNotificationVisiblity(true);
         Main.wm.removeKeybinding("mediacontrols-show-popup-menu");
         debugLog("Disabled");

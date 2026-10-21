@@ -44,9 +44,14 @@ export default class PlayerProxy {
     changeListeners;
     /**
      * @private
-     * @type {number}
+     * @type {number | null}
      */
     pollSourceId;
+    /**
+     * @private
+     * @type {number | null}
+     */
+    propertiesChangedId;
 
     /**
      * @public
@@ -91,15 +96,18 @@ export default class PlayerProxy {
         this.mprisProxy = proxies[0];
         this.mprisPlayerProxy = proxies[1];
         this.propertiesProxy = proxies[2];
-        this.propertiesProxy.connectSignal("PropertiesChanged", (proxy, senderName, [, changedProperties]) => {
-            for (const [property, value] of Object.entries(changedProperties)) {
-                this.mprisPlayerProxy.set_cached_property(property, value);
-                this.callOnChangedListeners(
-                    /** @type {KeysOf<PlayerProxyProperties>} */ (property),
-                    value.recursiveUnpack(),
-                );
-            }
-        });
+        this.propertiesChangedId = this.propertiesProxy.connectSignal(
+            "PropertiesChanged",
+            (proxy, senderName, [, changedProperties]) => {
+                for (const [property, value] of Object.entries(changedProperties)) {
+                    this.mprisPlayerProxy.set_cached_property(property, value);
+                    this.callOnChangedListeners(
+                        /** @type {KeysOf<PlayerProxyProperties>} */ (property),
+                        value.recursiveUnpack(),
+                    );
+                }
+            },
+        );
         this.onChanged("Metadata", this.validatePlayer.bind(this));
         this.onChanged("Identity", this.validatePlayer.bind(this));
         this.onChanged("DesktopEntry", this.validatePlayer.bind(this));
@@ -608,6 +616,13 @@ export default class PlayerProxy {
     onDestroy() {
         if (this.pollSourceId != null) {
             GLib.source_remove(this.pollSourceId);
+            // Clear the ID so an in-flight poll promise doesn't keep firing listeners after teardown
+            this.pollSourceId = null;
         }
+        if (this.propertiesProxy != null && this.propertiesChangedId != null) {
+            this.propertiesProxy.disconnectSignal(this.propertiesChangedId);
+            this.propertiesChangedId = null;
+        }
+        this.changeListeners.clear();
     }
 }

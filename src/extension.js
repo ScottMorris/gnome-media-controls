@@ -308,20 +308,32 @@ export default class MediaControls extends Extension {
      */
     disable() {
         this.enableGeneration = (this.enableGeneration ?? 0) + 1;
+        const playerProxies = this.playerProxies;
         this.playerProxies = null;
-        this.destroySettings();
-        this.watchIfaceInfo = null;
-        this.mprisIfaceInfo = null;
-        this.mprisPlayerIfaceInfo = null;
-        this.propertiesIfaceInfo = null;
-        if (this.watchProxy != null && this.watchProxySignalId != null) {
-            this.watchProxy.disconnectSignal(this.watchProxySignalId);
+        try {
+            this.destroySettings();
+            this.watchIfaceInfo = null;
+            this.mprisIfaceInfo = null;
+            this.mprisPlayerIfaceInfo = null;
+            this.propertiesIfaceInfo = null;
+            if (this.watchProxy != null && this.watchProxySignalId != null) {
+                this.watchProxy.disconnectSignal(this.watchProxySignalId);
+            }
+            this.watchProxySignalId = null;
+            this.watchProxy = null;
+            this.removePanelButton();
+            this.updateMediaNotificationVisiblity(true);
+            Main.wm.removeKeybinding("mediacontrols-show-popup-menu");
+        } finally {
+            // Stop each player's poll timer and D-Bus signal handler so nothing calls back into a disabled extension, even if the teardown above threw
+            for (const playerProxy of playerProxies?.values() ?? []) {
+                try {
+                    playerProxy.onDestroy();
+                } catch (error) {
+                    errorLog("Failed to destroy player:", playerProxy.busName, error);
+                }
+            }
         }
-        this.watchProxySignalId = null;
-        this.watchProxy = null;
-        this.removePanelButton();
-        this.updateMediaNotificationVisiblity(true);
-        Main.wm.removeKeybinding("mediacontrols-show-popup-menu");
         debugLog("Disabled");
     }
 
@@ -675,21 +687,27 @@ export default class MediaControls extends Extension {
      */
     async addPlayer(busName, generation = this.enableGeneration) {
         debugLog("Adding player:", busName);
+        /** @type {PlayerProxy | null} */
+        let playerProxy = null;
         try {
-            const playerProxy = new PlayerProxy(busName);
+            playerProxy = new PlayerProxy(busName);
             const initSuccess = await playerProxy
                 .initPlayer(this.mprisIfaceInfo, this.mprisPlayerIfaceInfo, this.propertiesIfaceInfo)
                 .catch(errorLog);
             if (initSuccess == null || initSuccess === false) {
                 errorLog("Failed to init player:", busName);
+                playerProxy.onDestroy();
                 return;
             }
-            if (generation !== this.enableGeneration) {
+            if (generation !== this.enableGeneration || this.playerProxies?.has(busName)) {
+                // Superseded by a disable/enable cycle, or another addPlayer() for this bus name already won the race
                 playerProxy.onDestroy();
                 return;
             }
             const isPlayerBlacklisted = this.isPlayerBlacklisted(playerProxy.identity, playerProxy.desktopEntry);
             if (isPlayerBlacklisted) {
+                // Not tracked in playerProxies, so nothing else would stop its poll timer and signal handler
+                playerProxy.onDestroy();
                 return;
             }
             playerProxy.onChanged("IsPinned", this.setActivePlayer.bind(this));
@@ -702,6 +720,9 @@ export default class MediaControls extends Extension {
             this.panelBtn?.updateWidgets(WidgetFlags.MENU_PLAYERS);
         } catch (e) {
             errorLog("Failed to add player:", busName, e);
+            if (this.playerProxies?.get(busName) !== playerProxy) {
+                playerProxy?.onDestroy();
+            }
         }
     }
 
@@ -726,6 +747,9 @@ export default class MediaControls extends Extension {
      * @returns {void}
      */
     setActivePlayer() {
+        if (this.playerProxies == null) {
+            return;
+        }
         if (this.playerProxies.size === 0) {
             if (this.panelBtn != null) {
                 this.removePanelButton();

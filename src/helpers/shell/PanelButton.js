@@ -217,7 +217,8 @@ class PanelButton extends PanelMenu.Button {
      * @returns {boolean}
      */
     isSamePlayer(playerProxy) {
-        return this.playerProxy.busName === playerProxy.busName;
+        // Compare identity as well as bus name: a player that restarted under the same bus name is a new proxy and must be re-subscribed
+        return this.playerProxy === playerProxy;
     }
 
     /**

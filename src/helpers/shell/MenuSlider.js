@@ -4,6 +4,7 @@ import St from "gi://St";
 import * as Slider from "resource:///org/gnome/shell/ui/slider.js";
 
 import { msToHHMMSS } from "../../utils/common.js";
+import { setVertical } from "../../utils/shell_only.js";
 
 /** @extends St.BoxLayout */
 class MenuSlider extends St.BoxLayout {
@@ -55,7 +56,8 @@ class MenuSlider extends St.BoxLayout {
      *
      */
     constructor() {
-        super({ vertical: true });
+        super();
+        setVertical(this);
         this.rate = 1.0;
         this.slider = new Slider.Slider(0);
         this.textBox = new St.BoxLayout();
